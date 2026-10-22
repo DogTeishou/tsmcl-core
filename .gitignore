@@ -1,4 +1,4 @@
-/target
-/Cargo.lock
-/rust-minecraft-client-launch
-/.idea
+target/
+Cargo.lock
+rust-minecraft-client-launch/
+.idea/
