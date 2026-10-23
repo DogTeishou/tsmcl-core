@@ -5,13 +5,10 @@ use std::sync::atomic::Ordering::Relaxed;
 use std::time::Duration;
 use std::sync::Mutex;
 use anyhow::{bail, Context};
-use futures::future::try_join_all;
 use futures::StreamExt;
-use reqwest::header::RANGE;
-use reqwest::{Response, StatusCode};
 use sha1::Digest;
 use tokio::fs::OpenOptions;
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::Semaphore;
 
 pub struct DownloadOptions {
@@ -119,109 +116,25 @@ impl Downloader {
     }
 
     pub async fn download_one(&self, task: &Task) -> anyhow::Result<()> {
-        if self.is_valid(&task.path, task).await {
-            if let Some(size) = task.size {
-                self.progress.bytes_done.fetch_add(size, Relaxed);
-            }
-            return Ok(())
-        }
-        if let Some(dir) = task.path.parent() {
-            tokio::fs::create_dir_all(dir).await?;
-        }
-
-        let tmp = tmp_path(&task.path);
-        let big = task.size.map_or(false, |s| s >= self.options.chunk_threshold);
-        let mut last: Option<anyhow::Error> = None;
-
-        for attempt in 0..self.options.retries {
-            if attempt > 0 {
-                tokio::time::sleep(Duration::from_secs((attempt - 1).min(5) as u64)).await;
-            }
-
-            let local = AtomicU64::new(0);
-            let res: anyhow::Result<()> = async {
-                if big && attempt == 0 {
-                    self.fetch_chunked(task, &tmp, &local).await?;
-                } else {
-                    self.fetch_single(task, &tmp, &local).await?;
-                }
-                self.verify(task, &tmp).await
-            }.await;
-            match res {
-                Ok(_) => {tokio::fs::rename(&tmp, &task.path).await?; return Ok(())},
-                Err(e) => last = Some(e),
-            }
-            Err(last.unwrap()).with_context(|| format!("download failed: {}", task.url))?;
-        }
-
-        Ok(())
-    }
-
-    async fn fetch_single(&self, task: &Task, tmp: &Path, local: &AtomicU64) -> anyhow::Result<()> {
         let _permit = self.semaphore.acquire().await?;
         let res = self.client
             .get(&task.url)
             .send()
-            .await?
-            .error_for_status()?;
-        let mut f = OpenOptions::new().write(true).open(tmp).await?;
+            .await?;
+        if task.path.exists() {
+            tokio::fs::remove_file(&task.path).await?;
+        }
+        let mut file = tokio::fs::File::create(&task.path).await?;
         let mut body = res.bytes_stream();
         while let Some(chunk) = body.next().await {
             let chunk = chunk?;
-            f.write_all(&chunk).await?;
-            self.add(local, chunk.len() as u64);
+            file.write_all(&chunk).await?;
+            self.progress.bytes_done.fetch_add(chunk.len() as u64, Relaxed);
         }
-        f.flush().await?;
+        file.flush().await?;
+        drop(file);
+        self.verify(task, task.path.as_path()).await?;
         Ok(())
-    }
-
-    async fn fetch_chunked(&self, task: &Task, tmp: &Path, local: &AtomicU64) -> anyhow::Result<()> {
-        let size = task.size.context("file per chunk size")?;
-        let chunk_size = self.options.chunk_size.clamp(1024 * 1024, 1024 * 1024 * 1024);
-        let f = tokio::fs::File::create(tmp).await?;
-        f.set_len(size).await?;
-        drop(f);
-
-        let ranges = (0..size)
-            .step_by(chunk_size as usize)
-            .map(|i| (i, (i + chunk_size - 1).min(i + size - 1)));
-        try_join_all(ranges.map(|(a, b)| self.fetch_range(&task.url, tmp, a, b, local))).await?;
-        Ok(())
-    }
-
-    async fn fetch_range(&self, url: &str, tmp: &Path, start: u64, end: u64, local: &AtomicU64) -> anyhow::Result<()>  {
-        let _permit = self.semaphore.acquire().await?;
-        let res = self.client
-            .get(url)
-            .header(RANGE, format!("bytes={start}--{end}"))
-            .send()
-            .await?
-            .error_for_status()?;
-        if res.status() != StatusCode::PARTIAL_CONTENT {
-            return Err(anyhow::anyhow!("expected 206, got {}", res.status()));
-        }
-
-        let mut f = OpenOptions::new().write(true).open(tmp).await?;
-        f.seek(tokio::io::SeekFrom::Start(start)).await?;
-        let mut body = res.bytes_stream();
-        while let Some(chunk) = body.next().await {
-            let chunk = chunk?;
-            f.write_all(&chunk).await?;
-            self.add(local, chunk.len() as u64);
-        }
-        f.flush().await?;
-        Ok(())
-    }
-
-    fn add(&self, local: &AtomicU64, n: u64) {
-        local.fetch_add(n, Relaxed);
-        self.progress.bytes_done.fetch_add(n, Relaxed);
-    }
-    async fn is_valid(&self, path: &Path, task: &Task) -> bool {
-        if task.sha1.is_none() && task.size.is_none() {
-            return false;
-        }
-        tokio::fs::metadata(path).await.is_ok() && self.verify(task, path).await.is_ok()
     }
 
     async fn verify(&self, task: &Task, path: &Path) -> anyhow::Result<()> {
@@ -239,12 +152,6 @@ impl Downloader {
         }
         Ok(())
     }
-}
-
-fn tmp_path(path: &Path) -> PathBuf {
-    let mut p = path.as_os_str().to_owned();
-    p.push(".part");
-    PathBuf::from(p)
 }
 
 async fn sha1_of(path: &Path) -> anyhow::Result<String> {

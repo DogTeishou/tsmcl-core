@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct AssetIndex {
     pub id: String,
     pub size: u32,
@@ -11,12 +11,12 @@ pub struct AssetIndex {
     pub url: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Index {
     pub objects: HashMap<String, Object>,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Object {
     pub hash: String,
     pub size: u32,

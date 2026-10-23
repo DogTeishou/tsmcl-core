@@ -6,6 +6,7 @@ use crate::parse::Parse;
 
 impl Download for AssetIndex {
     async fn build_task(&self, downloader: &mut Downloader, source: &Source, mod_loader: &ModLoader, game_dir: &Path) -> anyhow::Result<()> {
+        println!("Downloading assets index {}...", self.id);
         let indexes_dir = &game_dir.join("assets").join("indexes");
         if !indexes_dir.exists() {
             tokio::fs::create_dir_all(&indexes_dir).await?;

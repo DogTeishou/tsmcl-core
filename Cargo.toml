@@ -17,4 +17,5 @@ hex = "0.4.3"
 file-hashing = "0.1.2"
 sha-1 = "0.10.1"
 md5 = "0.8.1"
+uuid = { version = "1.28.0", features = ["v3"] }
 zip = "9.0.5"

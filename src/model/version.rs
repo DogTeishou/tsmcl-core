@@ -1,10 +1,10 @@
-use serde::{Deserialize};
+use serde::{Deserialize, Serialize};
 use crate::model::library::Library;
 use crate::model::asset::AssetIndex;
 
 pub type Libraries = Vec<Library>;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Version {
     pub id: String,
     #[serde(alias = "assetIndex")]
@@ -20,13 +20,13 @@ pub struct Version {
     pub type_: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Downloads {
     pub client: MainJar,
     pub server: MainJar,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct MainJar {
     pub sha1: String,
     pub size: u32,
