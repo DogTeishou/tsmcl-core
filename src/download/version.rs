@@ -1,6 +1,4 @@
 use std::path::Path;
-use std::sync::Arc;
-use tokio::io::AsyncWriteExt;
 use crate::download::{get, Download, ModLoader, Source};
 use crate::download::downloader::{Downloader, Task};
 use crate::model::version_manifest::Version;

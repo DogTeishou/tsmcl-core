@@ -1,8 +1,6 @@
 use std::ffi::OsStr;
-use std::iter::zip;
 use std::path::Path;
 use std::process::Stdio;
-use tokio::io::{AsyncBufReadExt, BufReader};
 use crate::download::{get, Source};
 use crate::download::library::Allowed;
 use crate::model;

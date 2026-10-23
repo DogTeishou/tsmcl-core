@@ -55,7 +55,7 @@ mod tests {
         version.build_task(&mut downloader, &Source::Official, &ModLoader::Vanilla, download_path).await?;
 
         let downloader = Arc::new(downloader);
-        let vec = downloader.download_all().await;
+        let _vec = downloader.download_all().await;
 
         Ok(())
     }
