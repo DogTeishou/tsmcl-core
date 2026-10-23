@@ -159,10 +159,12 @@ impl Launcher {
 
     pub async fn launch(&mut self) -> anyhow::Result<()> {
         println!("Launching Minecraft {}...", self.version);
-        let cmd = &mut self.cmd; // Set the executable or use self.main_class if needed
-        cmd.args(&self.args)
+        let cmd = &mut self.cmd;
+        let code = cmd.env("LESSCHARSET", "utf-8") 
             .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .status().await?;
+        println!("minecraft exited, exit code: {}", code);
         Ok(())
     }
 }
@@ -210,14 +212,14 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn run_test() -> anyhow::Result<()> {
+    async fn launch_offline_test() -> anyhow::Result<()> {
         let uuid = generate_offline_uuid("test".to_string());
         let mut launcher = Launcher::new("C:\\Program Files\\Zulu\\zulu-25\\bin\\java.exe".to_string());
-            launcher.game_dir(std::env::current_dir()?.join("rust-minecraft-client-launch").to_str().unwrap())
-            .version("1.21")
+            launcher.game_dir(std::env::current_dir()?.join(".minecraft").to_str().unwrap())
+            .version("26.3")
             .username("test")
             .uuid(uuid.as_str())
-            .access_token("0")
+            .access_token("offline")
             .main_class("net.minecraft.client.main.Main")
             .build()?;
         launcher.launch().await?;

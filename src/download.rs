@@ -20,7 +20,7 @@ pub enum Source {
 }
 
 pub trait Download {
-    async fn build_task(&self, downloader: &mut Downloader, source: &Source, mod_loader: &ModLoader, game_dir: &Path) -> anyhow::Result<()>;
+    fn build_task(&self, downloader: &mut Downloader, source: &Source, mod_loader: &ModLoader, game_dir: &Path) -> impl Future<Output = anyhow::Result<()>> + Send;
 }
 
 pub async fn get<T: reqwest::IntoUrl>(url: T) -> reqwest::Result<reqwest::Response> {
@@ -41,14 +41,14 @@ mod tests {
     #[tokio::test]
     async fn test_download() -> anyhow::Result<()> {
         let version = Version {
-            id: "1.21".to_string(),
+            id: "26.3".to_string(),
             type_: "release".to_string(),
-            url: "https://piston-meta.mojang.com/v1/packages/177e49d3233cb6eac42f0495c0a48e719870c2ae/1.21.json".to_string(),
-            time : "2024-06-13T08:32:38+00:00".to_string(),
-            release_time : "2024-06-13T08:24:03+00:00".to_string(),
+            url: "https://piston-meta.mojang.com/v1/packages/61fff1316bd50312624a858bbb5eb18fa45208ed/26.3.json".to_string(),
+            time : "2026-10-20T06:46:34+00:00".to_string(),
+            release_time : "2026-09-15T11:23:02+00:00".to_string(),
         };
 
-        let download_path = &std::env::current_dir()?.join("rust-minecraft-client-launch");
+        let download_path = &std::env::current_dir()?.join(".minecraft");
         std::fs::create_dir_all(download_path).unwrap_or_else(|err| panic!("{:?}", err));
 
         let mut downloader = Downloader::new(DownloadOptions::default())?;
