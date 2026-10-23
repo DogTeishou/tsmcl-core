@@ -1,6 +1,6 @@
 [package]
 name = "tsmcl_core"
-version = "0.1.0"
+version = "0.0.1"
 edition = "2024"
 authors = [
     "Teishou:Liang Zhihan"
@@ -11,6 +11,9 @@ tokio = { version = "1.54.1", features = ["full"] }
 reqwest = { version = "0.13.5", features = ["stream", "json"] }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
+futures = "0.3.34"
+anyhow = "1.0.104"
+hex = "0.4.3"
 file-hashing = "0.1.2"
 sha-1 = "0.10.1"
 md5 = "0.8.1"

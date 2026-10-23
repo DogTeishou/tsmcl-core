@@ -1,8 +1,12 @@
-use std::error::Error;
 use std::path::Path;
-use crate::download::{get, sha1, Allowed, Download, DownloadSource};
+use crate::download::{Download, ModLoader, Source};
+use crate::download::downloader::{Downloader, Task};
 use crate::model::library::Library;
 use crate::model::version::Libraries;
+
+pub trait Allowed {
+    fn allowed(&self) -> bool;
+}
 
 impl Allowed for Library {
     fn allowed(&self) -> bool {
@@ -38,7 +42,7 @@ impl Allowed for Library {
 }
 
 impl Download for Libraries {
-    async fn download(&self, download_source: &DownloadSource, game_dir: &Path) -> Result<(), Box<dyn Error>> {
+    async fn build_task(&self, downloader: &mut Downloader, source: &Source, mod_loader: &ModLoader, game_dir: &Path) -> anyhow::Result<()> {
         println!("Downloading libraries");
         let libraries_dir = &game_dir.join("libraries");
 
@@ -58,23 +62,8 @@ impl Download for Libraries {
                 std::fs::create_dir_all(&lib_path.parent().unwrap())?;
             }
 
-            if lib_path.exists() {
-                if sha1(lib_path)?.eq(&lib.downloads.artifact.sha1) {
-                    continue;
-                } else {
-                    std::fs::remove_file(lib_path)?;
-                }
-            }
-
-            let url: &str = match &download_source {
-                DownloadSource::Official => { &lib.downloads.artifact.url },
-                DownloadSource::BMCLAPI => { &lib.downloads.artifact.url.replace("libraries.minecraft.net", "bmclapi2.bangbang93.com/maven") },
-                DownloadSource::TSMCLAPI => { &lib.downloads.artifact.url.replace("libraries.minecraft.net", "tsmclapi.v1.dogteishou.cn/libs") },
-                DownloadSource::Other(domain) => { &lib.downloads.artifact.url.replace("libraries.minecraft.net", domain.as_str()) },
-            };
-
-            let bytes = &get(url).await?.bytes().await?;
-            std::fs::write(lib_path, bytes)?;
+            let task = Task::new(&lib.downloads.artifact.url, lib_path, Some(lib.downloads.artifact.size as u64), Some(lib.downloads.artifact.sha1.clone()));
+            downloader.add_task(task);
         }
 
         Ok(())

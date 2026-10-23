@@ -1,23 +1,26 @@
 pub mod version;
+pub mod downloader;
 pub mod library;
 pub mod asset;
 
 use std::path::Path;
-use sha1::Digest;
+use crate::download::downloader::Downloader;
 
-pub enum DownloadSource {
+pub enum ModLoader {
+    Vanilla,
+    Forge,
+    NeoForge,
+    Fabric,
+    Quilt,
+}
+
+pub enum Source {
     Official,
-    BMCLAPI,
-    TSMCLAPI,
-    Other(String)
+    BMCLAPI
 }
 
 pub trait Download {
-    fn download(&self, download_source: &DownloadSource, game_dir: &Path) -> impl Future<Output=Result<(), Box<dyn std::error::Error>>>;
-}
-
-pub trait Allowed {
-    fn allowed(&self) -> bool;
+    async fn build_task(&self, downloader: &mut Downloader, source: &Source, mod_loader: &ModLoader, game_dir: &Path) -> anyhow::Result<()>;
 }
 
 pub async fn get<T: reqwest::IntoUrl>(url: T) -> reqwest::Result<reqwest::Response> {
@@ -28,7 +31,32 @@ pub async fn get<T: reqwest::IntoUrl>(url: T) -> reqwest::Result<reqwest::Respon
         .send().await
 }
 
-pub fn sha1<P: AsRef<Path>>(path: P) -> Result<String, std::io::Error> {
-    let mut hasher = sha1::Sha1::new();
-    file_hashing::get_hash_file(path, &mut hasher)
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use crate::download::{Download, ModLoader, Source};
+    use crate::download::downloader::{DownloadOptions, Downloader};
+    use crate::model::version_manifest::Version;
+
+    #[tokio::test]
+    async fn test_download() -> anyhow::Result<()> {
+        let version = Version {
+            id: "1.21".to_string(),
+            type_: "release".to_string(),
+            url: "https://piston-meta.mojang.com/v1/packages/177e49d3233cb6eac42f0495c0a48e719870c2ae/1.21.json".to_string(),
+            time : "2024-06-13T08:32:38+00:00".to_string(),
+            release_time : "2024-06-13T08:24:03+00:00".to_string(),
+        };
+
+        let download_path = &std::env::current_dir()?.join("rust-minecraft-client-launch");
+        std::fs::create_dir_all(download_path).unwrap_or_else(|err| panic!("{:?}", err));
+
+        let mut downloader = Downloader::new(DownloadOptions::default())?;
+        version.build_task(&mut downloader, &Source::Official, &ModLoader::Vanilla, download_path).await?;
+
+        let downloader = Arc::new(downloader);
+        downloader.download_all();
+
+        Ok(())
+    }
 }

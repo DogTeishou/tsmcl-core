@@ -1,30 +1,27 @@
 use std::path::Path;
-use crate::download::{get, sha1, Download, DownloadSource};
+use crate::download::{get, Download, ModLoader, Source};
+use crate::download::downloader::{Downloader, Task};
 use crate::model::asset::{AssetIndex, Index};
 use crate::parse::Parse;
 
 impl Download for AssetIndex {
-    async fn download(&self, download_source: &DownloadSource, game_dir: &Path) -> Result<(), Box<dyn std::error::Error>> {
-        println!("Downloading asset index");
+    async fn build_task(&self, downloader: &mut Downloader, source: &Source, mod_loader: &ModLoader, game_dir: &Path) -> anyhow::Result<()> {
         let indexes_dir = &game_dir.join("assets").join("indexes");
         if !indexes_dir.exists() {
-            std::fs::create_dir_all(&indexes_dir)?;
+            tokio::fs::create_dir_all(&indexes_dir).await?;
         }
 
-        let path = &indexes_dir.join(&format!("{}.json", self.id));
-        std::fs::File::create(path)?;
+        let index_path = &indexes_dir.join(format!("{}.json", self.id));
+        tokio::fs::File::create(index_path).await?;
+        let url = self.url.clone();
+        let text = get(url).await?.text().await?;
 
-        let url = &self.url;
-        let text = &get(url).await?.text().await?;
+        tokio::fs::write(index_path, &text).await?;
 
-        std::fs::write(path, text)?;
-
-        let index = Index::parse(text)?;
-
+        let index = Index::parse(&text)?;
         let objects_dir = &game_dir.join("assets").join("objects");
-
         if !objects_dir.exists() {
-            std::fs::create_dir_all(objects_dir)?;
+            tokio::fs::create_dir_all(&objects_dir).await?;
         }
 
         for (_, value) in index.objects {
@@ -41,25 +38,16 @@ impl Download for AssetIndex {
             }
 
             let path = &first_two_dir.join(&hash);
-            if path.exists() {
-                if sha1(path)?.eq(hash) {
-                    continue;
-                } else {
-                    std::fs::remove_file(path)?;
-                }
-            }
 
-            std::fs::File::create(path)?;
-
-            let url = match download_source {
-                DownloadSource::Official => { format!("https://resources.download.minecraft.net/{}/{}", hash_first_two, hash) },
-                DownloadSource::BMCLAPI => { format!("https://bmclapi2.bangbang93.com/assets/{}/{}", hash_first_two, hash) },
-                DownloadSource::TSMCLAPI => { format!("https://tsmclapi.v1.dogteishou.cn/assets/{}/{}", hash_first_two, hash) },
-                DownloadSource::Other(domain) => { format!("https://{}/{}/{}", domain, hash_first_two, hash) },
+            let url = match source {
+                Source::Official => format!("https://resources.download.minecraft.net/{}/{}", hash_first_two, hash),
+                Source::BMCLAPI => format!("https://api.bmclapi.com/minecraft_assets/{}/{}", hash_first_two, hash),
             };
 
-            let bytes = &get(url).await?.bytes().await?;
-            std::fs::write(path, bytes)?;
+            let task = Task::new(&url, path, Some(value.size as u64), Some(hash.clone()));
+            downloader.add_task(task);
+
+            std::fs::File::create(path)?;
         }
 
         Ok(())
