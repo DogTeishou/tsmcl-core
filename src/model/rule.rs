@@ -9,7 +9,7 @@ pub type Features = HashMap<String, bool>;
 pub type VersionRange = HashMap<String, String>;
 pub type Rules = Vec<Rule>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Rule {
     pub action: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -18,7 +18,7 @@ pub struct Rule {
     pub features: Option<Features>
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Os {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -34,8 +34,8 @@ impl Allowed for Rules {
     fn allowed(&self) -> bool {
         let mut allowed = false;
         for rule in self {
-            if rule.allowed() {
-                allowed = true;
+            if rule.matches() {
+                allowed = rule.action.eq("allow");
             }
         }
         allowed
@@ -44,21 +44,23 @@ impl Allowed for Rules {
 
 impl Allowed for Rule {
     fn allowed(&self) -> bool {
-        let mut allowed = true;
+        self.matches() && self.action.eq("allow")
+    }
+}
+
+impl Rule {
+    fn matches(&self) -> bool {
         if let Some(os) = &self.os {
             if !os.allowed() {
-                allowed = false;
+                return false;
             }
         }
         if let Some(features) = &self.features {
             if !features.allowed() {
-                allowed = false;
+                return false;
             }
         }
-        if !self.action.eq("allow") {
-            allowed = false;
-        }
-        allowed
+        true
     }
 }
 
@@ -166,4 +168,36 @@ fn version_to_u32(version: &String) -> (u32, u32, u32) {
 
 fn get_os_version() -> String {
     os_info::get().version().to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rules_apply_matching_actions_in_order() {
+        let rules = vec![
+            Rule {
+                action: "allow".to_string(),
+                os: None,
+                features: None,
+            },
+            Rule {
+                action: "disallow".to_string(),
+                os: Some(Os {
+                    name: Some("osx".to_string()),
+                    arch: None,
+                    version: None,
+                    version_range: None,
+                }),
+                features: None,
+            },
+        ];
+
+        #[cfg(target_os = "macos")]
+        assert!(!rules.allowed());
+
+        #[cfg(any(target_os = "windows", target_os = "linux"))]
+        assert!(rules.allowed());
+    }
 }

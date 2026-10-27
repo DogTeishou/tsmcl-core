@@ -1,22 +1,22 @@
 use serde::{Deserialize, Serialize};
-
+use crate::model::Allowed;
 use crate::model::rule::Rule;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum Argument {
     Plain(String),
     Conditional(ConditionalArgument),
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct ConditionalArgument {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rules: Option<Vec<Rule>>,
     pub value: ArgumentValue,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum ArgumentValue {
     Single(String),
@@ -39,5 +39,17 @@ impl Argument {
                 }
             },
         };
+    }
+}
+
+impl Allowed for ConditionalArgument {
+    fn allowed(&self) -> bool {
+        let mut allowed = false;
+        if let Some(rules) = &self.rules {
+            if rules.allowed() {
+                allowed = true;
+            }
+        }
+        allowed
     }
 }

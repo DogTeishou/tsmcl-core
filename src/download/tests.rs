@@ -1,14 +1,29 @@
 use std::thread;
-use anyhow::Ok;
-use tokio::spawn;
 use crate::{download::{Download, Source}, model::manifest::VersionManifest};
 use crate::download::downloader::{DownloadTask, Downloader};
 use crate::download::downloader::progressor::terminal_sink;
 
-#[tokio::test]
-async fn test_version_1_12_2() -> anyhow::Result<()> {
-    let game_dir = &std::env::current_dir()?.join(".minecraft");
-    let version_dir = &game_dir.join("versions").join("1.12.2");
+#[test]
+fn test_version_1_12_2() -> anyhow::Result<()> {
+    download_version("1.12.2")
+}
+
+#[test]
+fn test_version_1_18() -> anyhow::Result<()> {
+    download_version("1.18")
+}
+
+#[test]
+fn test_version_26_3() -> anyhow::Result<()> {
+    download_version("26.3")
+}
+
+#[test]
+fn test_version_rd_132211() -> anyhow::Result<()> {
+    download_version("rd-132211")
+}
+
+fn download_version(version: &str) -> anyhow::Result<()> {
     let mut vd = Downloader::new(vec![], 32, 1024 * 1024, 5 * 1024 * 1024)?
         .on_progress(terminal_sink);
 
@@ -18,24 +33,32 @@ async fn test_version_1_12_2() -> anyhow::Result<()> {
     let mut ld = Downloader::new(vec![], 16, 1024 * 1024, 5 * 1024 * 1024)?
         .on_progress(terminal_sink);
 
-    let v = VersionManifest::get_manifest(&Source::Official)
-    .await?
-    .get_version("1.12.2", "1.12.2")
-    .await?
-    .download(&Source::Official, game_dir)
-    .await?;
-    if let Some(l) = &v.libraries {
-        l.download(&mut ld, &Source::Official, game_dir).await?;
-    }
-    if let Some(a) = &v.asset_index {
-        a.download(&mut ad, &Source::Official, game_dir).await?;
-    }
-    v.download(&mut vd, &Source::Official, version_dir).await?;
+    let runtime = tokio::runtime::Runtime::new()?;
+    runtime.block_on(async {
+        let game_dir = std::env::current_dir()?.join(".minecraft");
+        let version_dir = game_dir.join("versions").join(version);
 
-    thread::scope(move |_s| vd.run())?;
-    thread::scope(move |_s| ad.run())?;
-    thread::scope(move |_s| ld.run())?;
+        let v = VersionManifest::get_manifest(&Source::Official)
+            .await?
+            .get_version(version, version)
+            .await?
+            .download(&Source::Official, &game_dir)
+            .await?;
+        if let Some(l) = &v.libraries {
+            l.download(&mut ld, &Source::Official, &game_dir).await?;
+        }
+        if let Some(a) = &v.asset_index {
+            a.download(&mut ad, &Source::Official, &game_dir).await?;
+        }
+        v.download(&mut vd, &Source::Official, &version_dir).await?;
 
+        Ok::<(), anyhow::Error>(())
+    })?;
+    drop(runtime);
+
+    vd.run()?;
+    ad.run()?;
+    ld.run()?;
     Ok(())
 }
 
@@ -65,4 +88,3 @@ fn test_downloader() -> anyhow::Result<()> {
     t.join().ok();
     Ok(())
 }
-

@@ -151,8 +151,7 @@ impl Downloader {
         });
 
         results
-            .into_inner()
-            .unwrap()
+            .into_inner()?
             .into_iter()
             .map(|r| r.expect("probe result missing"))
             .collect()
@@ -197,6 +196,10 @@ impl Downloader {
 
         for (task, info) in self.tasks.iter().zip(probes.into_iter()) {
             let abort = Arc::new(AtomicBool::new(false)); // 用于某块失败时中止该文件的其他块
+
+            if let Some(parent) = task.path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
 
             match (info.ranges, info.total) {
                 // 小文件（含 0 字节、以及不支持 Range 但大小已知的小文件）

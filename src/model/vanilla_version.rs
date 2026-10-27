@@ -6,7 +6,7 @@ use crate::model::GameVersion;
 
 pub type Libraries = Vec<Library>;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct VanillaVersion {
     #[serde(alias = "minecraftArguments", skip_serializing_if = "Option::is_none")]
     pub minecraft_arguments: Option<String>,
@@ -40,28 +40,28 @@ pub struct VanillaVersion {
     pub java_version: Option<JavaVersion>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct JavaVersion {
     pub component: String,
     #[serde(alias = "majorVersion")]
     pub major_version: u32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Downloads {
     pub client: MainJar,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub server: Option<MainJar>,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct MainJar {
     pub sha1: String,
     pub size: u32,
     pub url: String,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Arguments{
     #[serde(alias = "default-user-jvm", skip_serializing_if = "Option::is_none")]
     pub default_user_jvm: Option<Vec<Argument>>,
@@ -69,17 +69,40 @@ pub struct Arguments{
     pub game: Vec<Argument>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Logging {
     pub client: LoggingClient,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct LoggingClient {
     pub argument: String,
     #[serde(alias = "type")]
     pub type_: String,
     pub file: DownloadItem,
+}
+
+impl VanillaVersion {
+    pub fn new() -> VanillaVersion {
+        VanillaVersion {
+            minecraft_arguments: None,
+            arguments: None,
+            asset_index: None,
+            assets: None,
+            compliance_level: None,
+            id: "".to_string(),
+            downloads: None,
+            libraries: None,
+            main_class: None,
+            release_time: "".to_string(),
+            time: "".to_string(),
+            type_: "".to_string(),
+            logging: None,
+            minimum_launcher_version: None,
+            client_version: None,
+            java_version: None,
+        }
+    }
 }
 
 impl GameVersion for VanillaVersion {

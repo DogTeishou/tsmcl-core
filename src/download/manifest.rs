@@ -39,10 +39,9 @@ impl VersionManifest {
 }
 
 impl Version {
-    pub(crate) async fn download(&self, source: &Source, game_dir: &Path) -> anyhow::Result<VanillaVersion> {
+    pub async fn download(&self, source: &Source, game_dir: &Path) -> anyhow::Result<VanillaVersion> {
         let version_dir = &game_dir.join("versions").join(format!("{}", self.id));
         let config_path = &version_dir.join(format!("{}.json", self.id));
-
         if !version_dir.exists() {
             tokio::fs::create_dir_all(version_dir).await?;
         }

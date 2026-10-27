@@ -1,20 +1,18 @@
 use std::path::Path;
 use anyhow::bail;
-use crate::download::{verify, Download, Source, sha1_of};
+use crate::download::{verify, Download, Source};
 use crate::download::downloader::{DownloadTask, Downloader};
 use crate::model::vanilla_version::VanillaVersion;
 
 impl Download for VanillaVersion {
     async fn download(&self,
-                      mut downloader: &mut Downloader,
+                      downloader: &mut Downloader,
                       source: &Source,
                       version_dir: &Path) -> anyhow::Result<()> {
         if !version_dir.exists() {
             bail!("No version directory found at {}", version_dir.display());
         }
         let name = version_dir.file_name().unwrap().to_str().unwrap();
-
-        let game_dir = version_dir.parent().unwrap().parent().unwrap();
 
         if self.downloads.is_none() {
             bail!("No downloads found");

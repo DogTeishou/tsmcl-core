@@ -20,8 +20,8 @@ impl Download for Libraries {
             if let Some(artifact) = &library.downloads.artifact {
                 let lib_path = &libraries_dir.join(&artifact.path);
                 if lib_path.exists() {
-                    if verify(&artifact.sha1, lib_path) {
-                        continue;
+                    if !verify(&artifact.sha1, lib_path) {
+                        std::fs::remove_file(lib_path)?;
                     }
                 }
                 if !lib_path.parent().unwrap().exists() {
@@ -35,21 +35,28 @@ impl Download for Libraries {
                 };
                 downloader.add_task(task);
             }
+        }
 
-            if let Some(native) = &library.get_natives() {
-                if let Some(classifiers) = &library.downloads.classifiers {
-                    let di = &classifiers[native];
-                    let lib_path = &libraries_dir.join(&di.path);
-                    if verify(&di.sha1, lib_path) {
-                        continue;
-                    }
-                    if !lib_path.parent().unwrap().exists() {
-                        std::fs::create_dir_all(&lib_path.parent().unwrap())?;
+        for lib in self {
+            if !lib.allowed() {
+                continue;
+            }
+            if let Some(native) = lib.get_natives() {
+                if let Some(download) = lib
+                    .downloads
+                    .classifiers
+                    .as_ref()
+                    .and_then(|classifiers| classifiers.get(&native))
+                {
+                    let url = source.get_library_url(&download.url);
+                    let lib_path = &libraries_dir.join(&download.path);
+                    if lib_path.exists() && !verify(&download.sha1, lib_path) {
+                        std::fs::remove_file(lib_path)?;
                     }
                     let task = DownloadTask {
-                        url: di.url.clone(),
-                        path: lib_path.to_path_buf(),
-                        sha1: Some(di.sha1.clone()),
+                        url,
+                        path: lib_path.clone(),
+                        sha1: Some(download.sha1.clone()),
                     };
                     downloader.add_task(task);
                 }
