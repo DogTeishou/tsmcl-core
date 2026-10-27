@@ -1,4 +1,4 @@
-use crate::model::version_manifest::{Latest, VersionManifest, Version};
+use crate::model::manifest::{Latest, VersionManifest, Version};
 use crate::parse::Parse;
 
 impl Parse<&str> for VersionManifest {

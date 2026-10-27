@@ -1,62 +1,96 @@
-pub mod version;
-pub mod downloader;
+use std::{collections::HashMap, path::Path};
+use std::io::Read;
+use reqwest::{IntoUrl, Response};
+use sha1::Digest;
+use tokio::io::AsyncReadExt;
+
+pub mod manifest;
+pub mod vanilla_version;
+
+pub use downloader::*;
+pub use downloader::progressor::*;
+
+#[cfg(test)]
+pub mod tests;
 pub mod library;
+pub mod downloader;
 pub mod asset;
-
-use std::path::Path;
-use crate::download::downloader::Downloader;
-
-pub enum ModLoader {
-    Vanilla,
-    Forge,
-    NeoForge,
-    Fabric,
-    Quilt,
-}
 
 pub enum Source {
     Official,
-    BMCLAPI
+    BMCLAPI,
+    Custom(HashMap<String, String>),
 }
 
 pub trait Download {
-    fn build_task(&self, downloader: &mut Downloader, source: &Source, mod_loader: &ModLoader, game_dir: &Path) -> impl Future<Output = anyhow::Result<()>> + Send;
+    fn download(&self,
+                downloader: &mut Downloader,
+                source: &Source,
+                game_dir: &Path) -> impl Future<Output=anyhow::Result<()>>;
 }
 
-pub async fn get<T: reqwest::IntoUrl>(url: T) -> reqwest::Result<reqwest::Response> {
-    reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(60))
-        .build()?
-        .get(url)
-        .send().await
+pub async fn get<U: IntoUrl>(url: U) -> Result<Response, reqwest::Error> {
+    reqwest::Client::builder().build()?.get(url).send().await
 }
 
-#[cfg(test)]
-mod tests {
-    use std::sync::Arc;
-    use crate::download::{Download, ModLoader, Source};
-    use crate::download::downloader::{DownloadOptions, Downloader};
-    use crate::model::version_manifest::Version;
+fn sha1_of(path: &Path) -> anyhow::Result<String> {
+    let mut file = std::fs::File::open(path)?;
+    let mut hasher = sha1::Sha1::new();
+    let mut buf = [0u8; 64 * 1024];
+    loop {
+        let n = file.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
+    Ok(hex::encode(hasher.finalize()))
+}
 
-    #[tokio::test]
-    async fn test_download() -> anyhow::Result<()> {
-        let version = Version {
-            id: "26.3".to_string(),
-            type_: "release".to_string(),
-            url: "https://piston-meta.mojang.com/v1/packages/61fff1316bd50312624a858bbb5eb18fa45208ed/26.3.json".to_string(),
-            time : "2026-10-20T06:46:34+00:00".to_string(),
-            release_time : "2026-09-15T11:23:02+00:00".to_string(),
-        };
+pub fn verify(sha1: &String, path: &Path) -> bool {
+    let mut verified = false;
+    let file_sha1 = match sha1_of(path) {
+        Ok(sha1) => sha1,
+        Err(_) => return verified,
+    };
 
-        let download_path = &std::env::current_dir()?.join(".minecraft");
-        std::fs::create_dir_all(download_path).unwrap_or_else(|err| panic!("{:?}", err));
+    if *sha1 == file_sha1 {
+        verified = true;
+    }
 
-        let mut downloader = Downloader::new(DownloadOptions::default())?;
-        version.build_task(&mut downloader, &Source::Official, &ModLoader::Vanilla, download_path).await?;
+    verified
+}
 
-        let downloader = Arc::new(downloader);
-        let _vec = downloader.download_all().await;
+impl Source {
+    pub fn get_manifest_url(&self) -> String {
+        match self {
+            Source::Official => "https://piston-meta.mojang.com/mc/game/version_manifest.json".to_string(),
+            Source::BMCLAPI => "https://bmclapi2.bangbang93.com/mc/game/version_manifest_v2.json".to_string(),
+            Source::Custom(url) => url["https://piston-meta.mojang.com/mc/game/version_manifest.json"].clone(),
+        }
+    }
 
-        Ok(())
+    pub fn get_version_url(&self, url: &String) -> String {
+        match self {
+            Source::Official => url.to_string(),
+            Source::BMCLAPI => url.replace("piston-meta.mojang.com", "bmclapi2.bangbang93.com"),
+            Source::Custom(uri) => url.replace("piston-meta.mojang.com", &uri["piston-meta.mojang.com"]),
+        }
+    }
+
+    pub fn get_asset_url(&self, url: &String) -> String {
+        match self {
+            Source::Official => url.to_string(),
+            Source::BMCLAPI => url.replace("resources.download.minecraft.net", "bmclapi2.bangbang93.com/assets"),
+            Source::Custom(uri) => url.replace("resources.download.minecraft.net", &uri["resources.download.minecraft.net"]),
+        }
+    }
+
+    pub fn get_library_url(&self, url: &String) -> String {
+        match self {
+            Source::Official => url.to_string(),
+            Source::BMCLAPI => url.replace("libraries.minecraft.net", "bmclapi2.bangbang93.com/maven"),
+            Source::Custom(uri) => url.replace("libraries.minecraft.net", &uri["libraries.minecraft.net"]),
+        }
     }
 }

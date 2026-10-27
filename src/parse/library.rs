@@ -1,4 +1,4 @@
-use crate::model::library::{Artifact, Download, Library, Os, Rule};
+use crate::model::library::{DownloadItem, Download, Library};
 use crate::parse::Parse;
 
 impl Parse<&str> for Library {
@@ -17,26 +17,10 @@ impl Parse<&str> for Download {
     }
 }
 
-impl Parse<&str> for Rule {
+impl Parse<&str> for DownloadItem {
     type Error = serde_json::Error;
 
     fn parse(data: &str) -> Result<Self, Self::Error> {
-        serde_json::from_str::<Rule>(data)
-    }
-}
-
-impl Parse<&str> for Os {
-    type Error = serde_json::Error;
-
-    fn parse(data: &str) -> Result<Self, Self::Error> {
-        serde_json::from_str::<Os>(data)
-    }
-}
-
-impl Parse<&str> for Artifact {
-    type Error = serde_json::Error;
-
-    fn parse(data: &str) -> Result<Self, Self::Error> {
-        serde_json::from_str::<Artifact>(data)
+        serde_json::from_str::<DownloadItem>(data)
     }
 }

@@ -1,12 +1,11 @@
+use std::fmt::format;
 use std::path::Path;
-use crate::download::{get, Download, ModLoader, Source};
-use crate::download::downloader::{Downloader, Task};
+use crate::download::{get, Download, Downloader, Source, DownloadTask, verify};
 use crate::model::asset::{AssetIndex, Index};
 use crate::parse::Parse;
 
 impl Download for AssetIndex {
-    async fn build_task(&self, downloader: &mut Downloader, source: &Source, mod_loader: &ModLoader, game_dir: &Path) -> anyhow::Result<()> {
-        println!("Downloading assets index {}...", self.id);
+    async fn download(&self, downloader: &mut Downloader, source: &Source, game_dir: &Path) -> anyhow::Result<()> {
         let indexes_dir = &game_dir.join("assets").join("indexes");
         if !indexes_dir.exists() {
             tokio::fs::create_dir_all(&indexes_dir).await?;
@@ -39,16 +38,21 @@ impl Download for AssetIndex {
             }
 
             let path = &first_two_dir.join(&hash);
+            if path.exists() {
+                if verify(hash, path) {
+                    continue;
+                }
+            }
 
-            let url = match source {
-                Source::Official => format!("https://resources.download.minecraft.net/{}/{}", hash_first_two, hash),
-                Source::BMCLAPI => format!("https://api.bmclapi.com/minecraft_assets/{}/{}", hash_first_two, hash),
+            let url = source.get_asset_url(&format!("https://resources.download.minecraft.net/{}/{}", hash_first_two, hash));
+
+            let task = DownloadTask {
+                url,
+                path: path.to_path_buf(),
+                sha1: Some(hash.clone()),
             };
 
-            let task = Task::new(&url, path, Some(value.size as u64), Some(hash.clone()));
             downloader.add_task(task);
-
-            std::fs::File::create(path)?;
         }
 
         Ok(())

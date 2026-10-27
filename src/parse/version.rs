@@ -1,4 +1,4 @@
-use crate::model::version::{Downloads, Libraries, MainJar, Version};
+use crate::model::vanilla_version::{Downloads, Libraries, MainJar, VanillaVersion};
 use crate::parse::Parse;
 
 impl Parse<&str> for Libraries {
@@ -9,11 +9,11 @@ impl Parse<&str> for Libraries {
     }
 }
 
-impl Parse<&str> for Version {
+impl Parse<&str> for VanillaVersion {
     type Error = serde_json::Error;
 
     fn parse(data: &str) -> Result<Self, Self::Error> {
-        serde_json::from_str::<Version>(data)
+        serde_json::from_str::<VanillaVersion>(data)
     }
 }
 

@@ -12,7 +12,7 @@ pub struct Latest {
     pub snapshot: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Version {
     pub id: String,
     #[serde(alias = "type")]
