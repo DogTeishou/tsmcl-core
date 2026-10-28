@@ -22,6 +22,8 @@ impl Download for Libraries {
                 if lib_path.exists() {
                     if !verify(&artifact.sha1, lib_path) {
                         std::fs::remove_file(lib_path)?;
+                    } else {
+                        continue;
                     }
                 }
                 if !lib_path.parent().unwrap().exists() {
@@ -32,6 +34,7 @@ impl Download for Libraries {
                     url,
                     path: lib_path.to_path_buf(),
                     sha1: Some(artifact.sha1.clone()),
+                    size: None
                 };
                 downloader.add_task(task);
             }
@@ -50,13 +53,18 @@ impl Download for Libraries {
                 {
                     let url = source.get_library_url(&download.url);
                     let lib_path = &libraries_dir.join(&download.path);
-                    if lib_path.exists() && !verify(&download.sha1, lib_path) {
-                        std::fs::remove_file(lib_path)?;
+                    if lib_path.exists() {
+                        if !verify(&download.sha1, lib_path) {
+                            std::fs::remove_file(lib_path)?;
+                        } else {
+                            continue;
+                        }
                     }
                     let task = DownloadTask {
                         url,
                         path: lib_path.clone(),
                         sha1: Some(download.sha1.clone()),
+                        size: None
                     };
                     downloader.add_task(task);
                 }

@@ -2,19 +2,15 @@ use std::{collections::HashMap, path::Path};
 use std::io::Read;
 use reqwest::{IntoUrl, Response};
 use sha1::Digest;
-use tokio::io::AsyncReadExt;
 
-pub mod manifest;
-pub mod vanilla_version;
+pub mod vanilla;
+pub mod downloader;
 
 pub use downloader::*;
-pub use downloader::progressor::*;
 
 #[cfg(test)]
 pub mod tests;
-pub mod library;
-pub mod downloader;
-pub mod asset;
+
 
 pub enum Source {
     Official,

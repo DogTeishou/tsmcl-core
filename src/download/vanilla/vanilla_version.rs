@@ -31,6 +31,7 @@ impl Download for VanillaVersion {
             url,
             path: client_path.clone(),
             sha1: Some(self.downloads.as_ref().unwrap().client.sha1.clone()),
+            size: None
         };
 
         downloader.add_task(task);

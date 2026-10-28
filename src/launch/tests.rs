@@ -17,7 +17,9 @@ fn launch_version(version: &str, java_dir: &str) -> anyhow::Result<()> {
         .game_name(version)
         .game_dir(&game_dir)
         .profile(&profile)
-        .vanilla_version(&vanilla_version).run()?;
+        .vanilla_version(&vanilla_version)
+        .lang("zh_cn")
+        .run()?;
     let status = child.wait()?;
     if !status.success() {
         bail!("Minecraft process exited with status {status}");
@@ -26,22 +28,27 @@ fn launch_version(version: &str, java_dir: &str) -> anyhow::Result<()> {
 }
 
 #[test]
-fn launcher_tests_26_3() -> anyhow::Result<()> {
+fn launcher_test_26_3() -> anyhow::Result<()> {
     launch_version("26.3", "C:\\Program Files\\Zulu\\zulu-25\\bin\\java.exe")
 }
 
 #[test]
-fn launcher_tests_1_18() -> anyhow::Result<()> {
+fn launcher_test_1_18() -> anyhow::Result<()> {
     launch_version("1.18", "C:\\Program Files\\Zulu\\zulu-25\\bin\\java.exe")
 }
 
 #[test]
-fn launcher_tests_1_12_2() -> anyhow::Result<()> {
+fn launcher_test_1_12_2() -> anyhow::Result<()> {
     launch_version("1.12.2", "C:\\Program Files\\Zulu\\zulu-8\\bin\\java.exe")
 }
 
 #[test]
-fn launcher_tests_rd_132211() -> anyhow::Result<()> {
+fn launch_test_1_0() -> anyhow::Result<()> {
+    launch_version("1.0", "C:\\Program Files\\Zulu\\zulu-8\\bin\\java.exe")
+}
+
+#[test]
+fn launcher_test_rd_132211() -> anyhow::Result<()> {
     launch_version("rd-132211", "C:\\Program Files\\Zulu\\zulu-8\\bin\\java.exe")
 }
 

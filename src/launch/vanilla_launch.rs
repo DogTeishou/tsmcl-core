@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 use std::process::{Child, Command, ExitStatus, Stdio};
 use zip::ZipArchive;
 use crate::auth::player::PlayerProfile;
-use crate::launch::LAUNCHER_VERSION;
+use crate::launch::{LAUNCHER_VERSION, LAUNCHER_VERSION_TYEP};
 use crate::model::Allowed;
 use crate::model::argument::{Argument, ArgumentValue};
 use crate::model::vanilla_version::VanillaVersion;
@@ -18,6 +19,7 @@ pub struct VanillaLauncher {
     width: Option<u32>,
     height: Option<u32>,
     profile: PlayerProfile,
+    lang: Option<String>,
     min_mb: usize,
     max_mb: usize,
 }
@@ -36,7 +38,13 @@ impl VanillaLauncher {
             profile: PlayerProfile::new(),
             min_mb: 2048,
             max_mb: 4096,
+            lang: None
         }
+    }
+
+    pub fn lang(&mut self, lang: &str) -> &mut Self {
+        self.lang = Some(lang.to_string());
+        self
     }
 
     pub fn max_mb(&mut self, max_mb: usize) -> &mut Self {
@@ -81,7 +89,7 @@ impl VanillaLauncher {
 
     pub fn run(&mut self) -> anyhow::Result<Child> {
         self.extract_natives()?;
-
+        self.init_lang()?;
         let args = self.build_arguments();
         self.command.args(args);
         if self.is_iso {
@@ -173,6 +181,23 @@ impl VanillaLauncher {
         vec
     }
 
+    fn init_lang(&self) -> anyhow::Result<()> {
+        let mut option_path = self.game_dir.join("options.txt");
+        if self.is_iso {
+            option_path = self.game_dir.join("versions").join(&self.game_name).join("options.txt");
+        }
+        if option_path.exists() {
+            return Ok(());
+        }
+        let mut file = fs::File::create(option_path)?;
+        if let Some(lang) = &self.lang {
+            let initial_options = format!("lang:{}\n", lang);
+            file.write_all(initial_options.as_bytes())?;
+            file.flush()?;
+        }
+        Ok(())
+    }
+
     fn game(&self, game: &Vec<Argument>, vec: &mut Vec<String>) {
         for argument in game {
             match argument {
@@ -227,7 +252,7 @@ impl VanillaLauncher {
         } else {
             hash_map.insert("${user_type}", "legacy".to_string());
         }
-        hash_map.insert("${version_type}", format!("Launcher: TSMCL {}", LAUNCHER_VERSION));
+        hash_map.insert("${version_type}", format!("{}: {}", LAUNCHER_VERSION_TYEP, LAUNCHER_VERSION));
 
         for (key, value) in hash_map {
             if string.contains(key) {
@@ -297,7 +322,7 @@ impl VanillaLauncher {
                 hash_map.insert("${auth_xuid}".to_string(), x_uid);
             }
         }
-        hash_map.insert("${version_type}".to_string(), format!("Minecraft: {}, Launcher: {}", self.vanilla_version.id, LAUNCHER_VERSION));
+        hash_map.insert("${version_type}".to_string(), format!("{}: {}", LAUNCHER_VERSION_TYEP, LAUNCHER_VERSION));
         if let Some(width) = self.width {
             hash_map.insert("${resolution_width}".to_string(), width.to_string());
         }

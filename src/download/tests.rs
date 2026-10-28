@@ -23,6 +23,11 @@ fn test_version_rd_132211() -> anyhow::Result<()> {
     download_version("rd-132211")
 }
 
+#[test]
+fn test_version_1_0() -> anyhow::Result<()> {
+    download_version("1.0")
+}
+
 fn download_version(version: &str) -> anyhow::Result<()> {
     let mut vd = Downloader::new(vec![], 32, 1024 * 1024, 5 * 1024 * 1024)?
         .on_progress(terminal_sink);
@@ -76,6 +81,7 @@ fn test_downloader() -> anyhow::Result<()> {
         url: "http://xcal1.vodafone.co.uk/1GB.zip".to_string(),
         path: download_dir.clone(),
         sha1: None,
+        size: None
     }];
     let downloader = Downloader::new(
         tasks,

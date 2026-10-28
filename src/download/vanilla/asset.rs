@@ -1,4 +1,3 @@
-use std::fmt::format;
 use std::path::Path;
 use crate::download::{get, Download, Downloader, Source, DownloadTask, verify};
 use crate::model::asset::{AssetIndex, Index};
@@ -50,6 +49,7 @@ impl Download for AssetIndex {
                 url,
                 path: path.to_path_buf(),
                 sha1: Some(hash.clone()),
+                size: Some(value.size as usize)
             };
 
             downloader.add_task(task);
